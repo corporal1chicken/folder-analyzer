@@ -22,12 +22,12 @@ def validate_drive(drive):
     return True
 
 def validate_folder(path):
-    if path.is_file():
-        print(f"{path} is a file, not a folder")
-        return False
-
     if not path.exists():
         print(f"{path} does not exist")
+        return False
+
+    if path.is_file():
+        print(f"{path} is a file, not a folder")
         return False
     
     return True
@@ -40,7 +40,8 @@ def add_files(text_path):
         for file in file_list:
             name, extension = os.path.splitext(file)
 
-            extra_info = os.stat(text_path + "/" + file)
+            full_path = os.path.join(root, file)
+            extra_info = os.stat(full_path)
 
             size = extra_info.st_size
             last_mod = datetime.datetime.fromtimestamp(extra_info.st_mtime)
@@ -52,6 +53,7 @@ def add_files(text_path):
 
             files.append(
                 {
+                    "full": file,
                     "name": name, 
                     "extension": extension,
                     "size": size,
@@ -62,15 +64,15 @@ def add_files(text_path):
 
     return files
 
-def format_size(bytes, decimal = 2):
-    if bytes == 0:
+def format_size(actual_bytes, decimal = 2):
+    if actual_bytes == 0:
         return "0 Bytes"
     
     power = 1024
-    units = ["Bytes", "KB", "MB", "GB"]
+    units = ["Bytes", "KB", "MB", "GB", "TB"]
 
-    i = int(math.floor(math.log(bytes, power)))
-    format = f"{bytes / (power ** i):.{decimal}f} {units[i]}"
+    i = int(math.floor(math.log(actual_bytes, power)))
+    format = f"{actual_bytes / (power ** i):.{decimal}f} {units[i]}"
 
     return format
 
@@ -82,16 +84,16 @@ def generate_report(files, folder_path):
     print("-----------------------------------")
 
     for f in files:
-        print(f"Name: {f["name"]} | Ext: {f["extension"]}")
-        print(f"Type: {f["type"].capitalize()}")
-        print(f"Raw: {f["size"]} Bytes | Size: {format_size(f["size"])}")
-        print(f"Last Modified: {f["last_modified"]}")
+        print(f"Name: {f['name']} | Ext: {f['extension']}")
+        print(f"Type: {f['type'].capitalize()}")
+        print(f"Raw: {f['size']} Bytes | Size: {format_size(f['size'])}")
+        print(f"Last Modified: {f['last_modified']}")
         print("-----------------------------------")
 
-        if file_count.get(f["type"]):
-            file_count[f["type"]] += 1
+        if file_count.get(f['type']):
+            file_count[f['type']] += 1
         else:
-            file_count[f["type"]] = 1
+            file_count[f['type']] = 1
 
     print(f"There are {sum(file_count.values())} files")
 

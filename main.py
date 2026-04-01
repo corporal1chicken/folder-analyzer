@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLabel, QPushButton, QFrame, QScrollArea, QTextEdit, QFileDialog)
+                             QLabel, QPushButton, QFrame, QScrollArea, QTextEdit, QFileDialog, QDialog)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 import datetime
 import math
+import json
 
 TYPES = {
     "image": [".png", ".jpg"],
@@ -72,6 +73,11 @@ def add_files(path):
 
     return files
 
+def display_message(self, text: str):
+    message = MessageDialogue(self)
+    message.message_label.setText(text)
+    message.exec_()
+
 class FileItem(QFrame):
     clicked = pyqtSignal(object)
 
@@ -115,13 +121,11 @@ class FileItem(QFrame):
 class FolderAnalyzer(QWidget):
     def __init__(self):
         super().__init__()
+        self.current_files = []
         self.file_widgets = []
-        self.current_files = None
         self.initUI()
 
-    def initUI(self):
-        #self.setFont(QFont('Segoe UI', 15))
-        
+    def initUI(self):        
         # Window
         main_layout = QVBoxLayout()
         main_layout.setSpacing(25)
@@ -153,7 +157,7 @@ class FolderAnalyzer(QWidget):
         content_layout = QHBoxLayout()
         content_layout.setSpacing(20)
 
-        box_style = "QFrame { background-color: white; border: 1px solid #C0C0C0; border-radius: 2px; }"
+        box_style = "QFrame {background-color: white; border: 1px solid #C0C0C0; border-radius: 2px;}"
 
         # Metadata
         metadata_col = QVBoxLayout()
@@ -194,19 +198,22 @@ class FolderAnalyzer(QWidget):
         self.scroll.setWidget(self.scroll_content)
         files_inner.addWidget(self.scroll)
 
-        # Export Button
+        # Export, Filters, Sort Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(10, 10, 10, 10)
         btn_layout.addStretch()
 
         self.export_btn = QPushButton("E")
         self.export_btn.setFixedSize(35, 35)
+        self.export_btn.setEnabled(False)
 
         self.filters_btn = QPushButton("F")
         self.filters_btn.setFixedSize(35, 35)
+        self.filters_btn.setEnabled(False)
 
         self.sort_btn = QPushButton("S")
         self.sort_btn.setFixedSize(35, 35)
+        self.sort_btn.setEnabled(False)
 
         self.export_btn.clicked.connect(self.export_data)
         self.filters_btn.clicked.connect(self.filter_data)
@@ -232,13 +239,13 @@ class FolderAnalyzer(QWidget):
         self.resize(750, 550)
         self.show()
 
-    def add_file_entry(self, name, info):
+    def add_entry(self, name, info):
         item = FileItem(name, info)
-        item.clicked.connect(self.handle_accordion)
+        item.clicked.connect(self.file_clicked)
         self.scroll_layout.addWidget(item)
         self.file_widgets.append(item)
 
-    def handle_accordion(self, clicked_item):
+    def file_clicked(self, clicked_item):
         is_currently_visible = clicked_item.info_label.isVisible()
 
         for item in self.file_widgets:
@@ -247,7 +254,7 @@ class FolderAnalyzer(QWidget):
         if not is_currently_visible:
             clicked_item.toggle(True)
 
-    def clear_file_entries(self):
+    def clear_entries(self):
         while self.file_widgets:
             item = self.file_widgets.pop()
 
@@ -262,37 +269,46 @@ class FolderAnalyzer(QWidget):
         print("Selecting folder...")
         folder_string = QFileDialog.getExistingDirectory(self, "Select a Folder", str(Path.home()))
         folder_path = Path(folder_string)
-        #self.folder_label.setText(folder_string)
 
         if not folder_string:
             self.folder_label.setText("No Folder Selected")
+
+            display_message(self, "No Folder Selected")
             return
 
-        success, message = validate_folder(folder_path)
+        success, error = validate_folder(folder_path)
         file_count = {}
 
-        if not success:
-            self.folder_label.setText(message)
+        if not success: 
+            self.folder_label.setText("No Folder Selected")
+
+            display_message(self, error)
+
             return
         else:
-            self.clear_file_entries()
+            self.clear_entries()
             self.folder_label.setText(folder_string)
+            self.export_btn.setEnabled(True)
+            self.sort_btn.setEnabled(True)
+            self.filters_btn.setEnabled(True)
 
             self.current_files = add_files(folder_path)
 
             for f in self.current_files:
-                self.add_file_entry(f['full'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}")
+                self.add_entry(f['full'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}")
 
-                if file_count.get(f['type']):
-                    file_count[f['type']] += 1
-                else:
-                    file_count[f['type']] = 1
+            self.metadata_display.setText("Metadata not yet set")
+
+            #    if file_count.get(f['type']):
+            #        file_count[f['type']] += 1
+            #    else:
+            #        file_count[f['type']] = 1
             
-            details = "\n-".join(f"{c} {t} files" for t, c in file_count.items())
+            #details = "\n-".join(f"{c} {t} files" for t, c in file_count.items())
 
-            self.metadata_display.setText(
-                f"-Total Files: {sum(file_count.values())}\n-{details}"
-            )
+            #self.metadata_display.setText(
+            #    f"-Total Files: {sum(file_count.values())}\n-{details}"
+            #)
     
     def filter_data(self):
         print("Filtering data")
@@ -302,6 +318,125 @@ class FolderAnalyzer(QWidget):
 
     def export_data(self):
         print("Exporting data")
+
+        if not self.current_files:
+            display_message(self, "No files to export")
+            return
+
+        dialog = ExportDialog(self)
+        dialog.exec_()
+
+    def export_to_json(self):
+        print("Now actually exporting to json")
+        
+        downloads_path = Path.home() / "Downloads"
+        #timestamp = datetime.datetime.now()
+        
+        file_path = downloads_path / f"folder_analysis.json"
+
+        export_ready = []
+
+        for f in self.current_files:
+            export_ready.append({
+                "full": f["full"],
+                "name": f["name"],
+                "extension": f["extension"],
+                "raw": f["raw"],
+                "size": f["size"],
+                "type": f["type"].capitalize()
+            })
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as json_file:
+                json.dump(export_ready, json_file, indent=4)
+
+            display_message(self, f"Exported data to a .json file, find in Downloads")
+
+        except Exception as error:
+            display_message(self, f"Export failed: {error}")
+
+    def export_to_txt(self):
+        print("Now actually exporting to txt")
+
+        downloads_path = Path.home() / "Downloads"
+        #timestamp = datetime.datetime.now()
+
+        file_path = downloads_path / f"folder_analysis.txt"
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as txt_file:
+                txt_file.write("Folder Analyzer Export\n")
+                txt_file.write("-----------------------------------\n")
+
+                for f in self.current_files:
+                    txt_file.write(f"File: {f['full']}\n")
+                    txt_file.write(f"Name: {f['name']} | Ext: {f['extension']}\n")
+                    txt_file.write(f"Size: {f['size']} ({f['raw']} bytes)\n")
+                    txt_file.write(f"Type: {f['type'].capitalize()}\n")
+                    txt_file.write("-----------------------------------\n")
+
+            display_message(self, f"Exported data to a .txt file, find in Downloads")
+
+        except Exception as error:
+            display_message(self, f"Export failed: {error}")
+
+class ExportDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Export Options")
+        self.setFixedSize(240, 120)
+        
+        layout = QVBoxLayout(self)
+        label = QLabel("How would you like to export?")
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+
+        btn_layout = QHBoxLayout()
+  
+        self.txt_btn = QPushButton("Export as .txt")
+        self.txt_btn.clicked.connect(self.on_txt_clicked)
+
+        self.json_btn = QPushButton("Export as .json")
+        self.json_btn.clicked.connect(self.on_json_clicked)
+        
+        btn_layout.addWidget(self.txt_btn)
+        btn_layout.addWidget(self.json_btn)
+        layout.addLayout(btn_layout)
+
+    def on_txt_clicked(self):
+        print("Export as .txt")
+
+        self.parent().export_to_txt()
+
+        self.accept()
+
+    def on_json_clicked(self):
+        print("Export as .json")
+        self.parent().export_to_json()
+        self.accept()
+
+class MessageDialogue(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Message")
+        self.setFixedSize(240, 120)
+        
+        layout = QVBoxLayout(self)
+        self.message_label = QLabel("")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setWordWrap(True)
+        layout.addWidget(self.message_label)
+
+        btn_layout = QHBoxLayout()
+  
+        self.txt_btn = QPushButton("Continue")
+        self.txt_btn.clicked.connect(self.close_message)
+        
+        btn_layout.addWidget(self.txt_btn)
+        layout.addLayout(btn_layout)
+
+    def close_message(self):
+        self.accept()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

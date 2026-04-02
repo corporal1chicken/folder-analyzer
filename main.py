@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLabel, QPushButton, QFrame, QScrollArea, QTextEdit, QFileDialog, QDialog)
+                             QLabel, QPushButton, QRadioButton, QFrame, QScrollArea, QTextEdit, QFileDialog, QDialog, QLineEdit)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
@@ -15,6 +15,8 @@ TYPES = {
     "video": [".mp4"],
     "text": [".txt", ".json", ".csv"]
 }
+
+SORT_OPTIONS = ["Name (A-Z)", "Name (Z-A)", "Size (Large to Small)", "Size (Small to Large)", "Date Modified"]
 
 def validate_folder(path):
     if not path.exists():
@@ -61,7 +63,8 @@ def add_files(path):
 
             files.append(
                 {
-                    "full": file,
+                    "filename": file,
+                    "path": full_path,
                     "name": name, 
                     "extension": extension,
                     "raw": size,
@@ -73,8 +76,8 @@ def add_files(path):
 
     return files
 
-def display_message(self, text: str):
-    message = MessageDialogue(self)
+def display_message(parent, text: str):
+    message = MessageDialog(parent)
     message.message_label.setText(text)
     message.exec_()
 
@@ -83,6 +86,7 @@ class FileItem(QFrame):
 
     def __init__(self, filename, metadata_text):
         super().__init__()
+        self.filename = filename
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(5, 5, 5, 5)
         self.layout.setSpacing(0)
@@ -104,10 +108,21 @@ class FileItem(QFrame):
             }
         """)
 
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(5)
+
         # File Button
         self.btn = QPushButton(f"📄 {filename}")
         self.btn.clicked.connect(lambda: self.clicked.emit(self))
-        self.layout.addWidget(self.btn)
+        header_layout.addWidget(self.btn, 1)
+
+        # Open File Button
+        self.file_btn = QPushButton("OPEN") 
+        self.file_btn.setFixedSize(55, 30)
+        self.file_btn.clicked.connect(self.open_file)
+        header_layout.addWidget(self.file_btn)
+
+        self.layout.addLayout(header_layout)
 
         # Expanding info
         self.info_label = QLabel(metadata_text)
@@ -118,10 +133,15 @@ class FileItem(QFrame):
     def toggle(self, expand):
         self.info_label.setVisible(expand)
 
+    def open_file(self):
+        print("opening")
+        print(self.filename)
+
 class FolderAnalyzer(QWidget):
     def __init__(self):
         super().__init__()
         self.current_files = []
+        self.display_files = []
         self.file_widgets = []
         self.initUI()
 
@@ -183,6 +203,14 @@ class FolderAnalyzer(QWidget):
         self.files_container.setStyleSheet(box_style)
         files_inner = QVBoxLayout(self.files_container)
         files_inner.setContentsMargins(0, 0, 0, 0)
+
+        # Search Bar
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("No Folder Selected")
+        self.search_bar.setEnabled(False)
+        self.search_bar.setStyleSheet("padding: 8px; border-bottom: 1px;")
+        self.search_bar.textChanged.connect(self.search_files)
+        files_inner.addWidget(self.search_bar)
         
         # Scrolling area
         self.scroll = QScrollArea()
@@ -230,10 +258,6 @@ class FolderAnalyzer(QWidget):
         content_layout.addLayout(metadata_col)
         content_layout.addLayout(files_col)
         main_layout.addLayout(content_layout)
-
-        # Test Data
-        #self.add_file_entry("document.txt", "Type: Text\nSize: 12KB\nLines: 150")
-        #self.add_file_entry("video.mp4", "Codec: H.264\nSize: 850MB\nLength: 12:45")
 
         self.setLayout(main_layout)
         self.resize(750, 550)
@@ -291,11 +315,14 @@ class FolderAnalyzer(QWidget):
             self.export_btn.setEnabled(True)
             self.sort_btn.setEnabled(True)
             self.filters_btn.setEnabled(True)
+            self.search_bar.setPlaceholderText("Search Files")
+            self.search_bar.setEnabled(True)
 
             self.current_files = add_files(folder_path)
+            self.display_files = self.current_files.copy()
 
-            for f in self.current_files:
-                self.add_entry(f['full'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}")
+            for f in self.display_files:
+                self.add_entry(f['filename'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
             self.metadata_display.setText("Metadata not yet set")
 
@@ -315,6 +342,16 @@ class FolderAnalyzer(QWidget):
 
     def sort_data(self):
         print("Sorting data")
+
+        if not self.current_files:
+            display_message(self, "No files to sort")
+            return
+
+        dialog = SortDialog(self)
+
+        if dialog.exec_() == QDialog.Accepted:
+            choice = dialog.get_selected_option()
+            print(choice)
 
     def export_data(self):
         print("Exporting data")
@@ -380,6 +417,9 @@ class FolderAnalyzer(QWidget):
         except Exception as error:
             display_message(self, f"Export failed: {error}")
 
+    def search_files(self):
+        print(f"searching for {self.search_bar.text}")
+        
 class ExportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -415,7 +455,7 @@ class ExportDialog(QDialog):
         self.parent().export_to_json()
         self.accept()
 
-class MessageDialogue(QDialog):
+class MessageDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Message")
@@ -437,6 +477,48 @@ class MessageDialogue(QDialog):
 
     def close_message(self):
         self.accept()
+
+class SortDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Sort Data")
+        self.setFixedSize(480, 240)
+        
+        layout = QVBoxLayout(self)
+        self.message_label = QLabel("Sort files by:")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setWordWrap(True)
+        layout.addWidget(self.message_label)
+
+        btn_layout = QHBoxLayout()
+
+        self.radio_buttons = []
+        
+        for text in SORT_OPTIONS:
+            radio = QRadioButton(text)
+            layout.addWidget(radio)
+            self.radio_buttons.append(radio)
+  
+        self.radio_buttons[0].setChecked(True)
+        
+        btn_layout = QHBoxLayout()
+        self.continue_btn = QPushButton("Continue")
+        self.continue_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.continue_btn)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+
+        layout.addLayout(btn_layout)
+
+    def get_selected_option(self):
+        for radio in self.radio_buttons:
+            if radio.isChecked():
+                return radio.text()
+            
+        return None
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

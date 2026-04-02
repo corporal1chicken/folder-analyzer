@@ -71,6 +71,42 @@ def sort_files(files, option):
         return sorted(files, key=lambda x: x["raw"], reverse=True)
     elif option == "Size (Small to Large)":
         return sorted(files, key=lambda x: x["raw"])
+    
+def get_metadata(files):
+    file_count = {}
+    smallest_file = None
+    largest_file = None
+    total_size = 0
+
+    for f in files:
+        if file_count.get(f['type']):
+            file_count[f['type']] += 1
+        else:
+            file_count[f['type']] = 1
+
+        if smallest_file is None or f['raw'] < smallest_file['raw']:
+            smallest_file = f
+        
+        if largest_file is None or f['raw'] > largest_file['raw']:
+            largest_file = f
+        
+        total_size += f['raw']
+
+    details = "\n".join(
+        f"- {count} {file_type} file{'s' if count > 1 else ''}"
+        for file_type, count in file_count.items()
+    )
+
+    # Final message
+    message = (
+        f"- Total Files: {len(files)}\n"
+        f"{details}\n"
+        f"- Total Size: {format_size(total_size)}\n"
+        f"- Smallest File: {smallest_file['filename']} ({format_size(smallest_file['raw'])})\n"
+        f"- Largest File: {largest_file['filename']} ({format_size(largest_file['raw'])})"
+    )
+
+    return message
 
 def display_message(parent, text: str):
     message = MessageDialog(parent)

@@ -3,10 +3,11 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from pathlib import Path
-from helpers import validate_folder, add_files, display_message, sort_files
+from helpers import validate_folder, add_files, display_message, sort_files, get_metadata
 from dialogs import SortDialog, ExportDialog
 
 import json
+import os
 
 class FolderAnalyzer(QWidget):
     def __init__(self):
@@ -34,7 +35,7 @@ class FolderAnalyzer(QWidget):
         self.folder_btn = QPushButton()
         self.folder_btn.setIcon(QIcon("icons/folder.png")) 
         self.folder_btn.setFixedSize(60, 60)
-        self.folder_btn.clicked.connect(self.select_folder) # Logic Hook
+        self.folder_btn.clicked.connect(self.select_folder)
         
         # Folder Label
         self.folder_label = QLabel("Select a folder")
@@ -79,9 +80,6 @@ class FolderAnalyzer(QWidget):
         # Search Bar
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("No Folder Selected")
-        search_icon = QIcon("icons/sort.png")
-        search_action = QAction(search_icon, "Search", self.search_bar)
-        self.search_bar.addAction(search_action)
         self.search_bar.setEnabled(False)
         self.search_bar.setStyleSheet("padding: 8px; border-bottom: 1px;")
         self.search_bar.textChanged.connect(self.search_files)
@@ -141,8 +139,8 @@ class FolderAnalyzer(QWidget):
         self.resize(750, 550)
         self.show()
 
-    def add_entry(self, name, info):
-        item = FileItem(name, info)
+    def add_entry(self, name, path, info):
+        item = FileItem(name, path, info)
         item.clicked.connect(self.file_clicked)
         self.scroll_layout.addWidget(item)
         self.file_widgets.append(item)
@@ -180,7 +178,6 @@ class FolderAnalyzer(QWidget):
             return
 
         success, error = validate_folder(folder_path)
-        file_count = {}
 
         if not success: 
             self.folder_label.setText("No Folder Selected")
@@ -201,20 +198,9 @@ class FolderAnalyzer(QWidget):
             self.display_files = self.current_files.copy()
             
             for f in self.display_files:
-                self.add_entry(f['filename'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+                self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
-            self.metadata_display.setText("Metadata not yet set")
-
-            #    if file_count.get(f['type']):
-            #        file_count[f['type']] += 1
-            #    else:
-            #        file_count[f['type']] = 1
-            
-            #details = "\n-".join(f"{c} {t} files" for t, c in file_count.items())
-
-            #self.metadata_display.setText(
-            #    f"-Total Files: {sum(file_count.values())}\n-{details}"
-            #)
+            self.metadata_display.setText(get_metadata(self.display_files))
     
     def filter_data(self):
         print("Filtering data")
@@ -323,9 +309,10 @@ class FolderAnalyzer(QWidget):
 class FileItem(QFrame):
     clicked = pyqtSignal(object)
 
-    def __init__(self, filename, metadata_text):
+    def __init__(self, filename, path, metadata_text):
         super().__init__()
         self.filename = filename
+        self.path = path
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(5, 5, 5, 5)
         self.layout.setSpacing(0)
@@ -356,8 +343,9 @@ class FileItem(QFrame):
         header_layout.addWidget(self.btn, 1)
 
         # Open File Button
-        self.file_btn = QPushButton("OPEN") 
-        self.file_btn.setFixedSize(55, 30)
+        self.file_btn = QPushButton()
+        self.file_btn.setIcon(QIcon("icons/arrow.png")) 
+        self.file_btn.setFixedSize(30, 30)
         self.file_btn.clicked.connect(self.open_file)
         header_layout.addWidget(self.file_btn)
 
@@ -375,3 +363,4 @@ class FileItem(QFrame):
     def open_file(self):
         print("opening")
         print(self.filename)
+        os.startfile(self.path)

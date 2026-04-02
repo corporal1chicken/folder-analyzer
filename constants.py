@@ -9,6 +9,6 @@ SORT_OPTIONS = [
     "Name (Z-A)", 
     "Size (Large to Small)", 
     "Size (Small to Large)", 
-    "Date Modified (Newest to Oldest)",
-    "Date Modified (Oldest to Newst)"
+    #"Date Modified (Newest to Oldest)",
+    #"Date Modified (Oldest to Newst)"
 ]

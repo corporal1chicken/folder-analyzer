@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
-                             QLabel, QPushButton, QFrame, QScrollArea, QTextEdit, QFileDialog, QDialog, QLineEdit)
+                             QLabel, QPushButton, QFrame, QScrollArea, QTextEdit, QFileDialog, QDialog, QLineEdit, QAction)
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QIcon
 from pathlib import Path
-from helpers import validate_folder, add_files, display_message
+from helpers import validate_folder, add_files, display_message, sort_files
 from dialogs import SortDialog, ExportDialog
 
 import json
@@ -13,6 +14,7 @@ class FolderAnalyzer(QWidget):
         self.current_files = []
         self.display_files = []
         self.file_widgets = []
+        self.last_sort_choice = "Name (A-Z)"
         self.initUI()
 
     def initUI(self):        
@@ -29,9 +31,9 @@ class FolderAnalyzer(QWidget):
 
         # Select Folder Button
         folder_section = QHBoxLayout()
-        self.folder_btn = QPushButton("📂") 
+        self.folder_btn = QPushButton()
+        self.folder_btn.setIcon(QIcon("icons/folder.png")) 
         self.folder_btn.setFixedSize(60, 60)
-        self.folder_btn.setStyleSheet("font-size: 24px;")
         self.folder_btn.clicked.connect(self.select_folder) # Logic Hook
         
         # Folder Label
@@ -77,6 +79,9 @@ class FolderAnalyzer(QWidget):
         # Search Bar
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("No Folder Selected")
+        search_icon = QIcon("icons/sort.png")
+        search_action = QAction(search_icon, "Search", self.search_bar)
+        self.search_bar.addAction(search_action)
         self.search_bar.setEnabled(False)
         self.search_bar.setStyleSheet("padding: 8px; border-bottom: 1px;")
         self.search_bar.textChanged.connect(self.search_files)
@@ -101,15 +106,18 @@ class FolderAnalyzer(QWidget):
         btn_layout.setContentsMargins(10, 10, 10, 10)
         btn_layout.addStretch()
 
-        self.export_btn = QPushButton("E")
+        self.export_btn = QPushButton()
+        self.export_btn.setIcon(QIcon("icons/export.png"))
         self.export_btn.setFixedSize(35, 35)
         self.export_btn.setEnabled(False)
 
-        self.filters_btn = QPushButton("F")
+        self.filters_btn = QPushButton()
+        self.filters_btn.setIcon(QIcon("icons/filter.png"))
         self.filters_btn.setFixedSize(35, 35)
         self.filters_btn.setEnabled(False)
 
-        self.sort_btn = QPushButton("S")
+        self.sort_btn = QPushButton()
+        self.sort_btn.setIcon(QIcon("icons/sort.png"))
         self.sort_btn.setFixedSize(35, 35)
         self.sort_btn.setEnabled(False)
 
@@ -161,7 +169,8 @@ class FolderAnalyzer(QWidget):
 
     def select_folder(self):
         print("Selecting folder...")
-        folder_string = QFileDialog.getExistingDirectory(self, "Select a Folder", str(Path.home()))
+    
+        folder_string = QFileDialog.getExistingDirectory(self, "Select a Folder", str(Path.home()))        
         folder_path = Path(folder_string)
 
         if not folder_string:
@@ -190,7 +199,7 @@ class FolderAnalyzer(QWidget):
 
             self.current_files = add_files(folder_path)
             self.display_files = self.current_files.copy()
-
+            
             for f in self.display_files:
                 self.add_entry(f['filename'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
@@ -217,11 +226,23 @@ class FolderAnalyzer(QWidget):
             display_message(self, "No files to sort")
             return
 
-        dialog = SortDialog(self)
+        dialog = SortDialog(self, self.last_sort_choice)
 
         if dialog.exec_() == QDialog.Accepted:
             choice = dialog.get_selected_option()
-            print(choice)
+
+            self.last_sort_choice = choice
+
+            sorted_files = sort_files(self.display_files, choice)
+            self.display_files = sorted_files
+
+            self.clear_entries()
+
+            for f in self.display_files:
+                self.add_entry(f['filename'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+
+            display_message(self, f"Applied {choice} Sort")
+
 
     def export_data(self):
         print("Exporting data")
@@ -289,8 +310,15 @@ class FolderAnalyzer(QWidget):
         except Exception as error:
             display_message(self, f"Export failed: {error}")
 
-    def search_files(self):
-        print(f"searching for {self.search_bar.text}")
+    def search_files(self, text):
+        query = text.lower().strip()
+
+        for item in self.file_widgets:
+            if query in item.filename:
+                item.show()
+            else:
+                item.hide()
+                item.toggle(False)
 
 class FileItem(QFrame):
     clicked = pyqtSignal(object)

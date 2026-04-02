@@ -62,6 +62,16 @@ def add_files(path):
 
     return files
 
+def sort_files(files, option):
+    if option == "Name (A-Z)":
+        return sorted(files, key=lambda x: x["name"].lower())
+    elif option == "Name (Z-A)":
+        return sorted(files, key=lambda x: x["name"].lower(), reverse=True)
+    elif option == "Size (Large to Small)":
+        return sorted(files, key=lambda x: x["raw"], reverse=True)
+    elif option == "Size (Small to Large)":
+        return sorted(files, key=lambda x: x["raw"])
+
 def display_message(parent, text: str):
     message = MessageDialog(parent)
     message.message_label.setText(text)

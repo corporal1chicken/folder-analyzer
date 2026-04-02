@@ -63,15 +63,14 @@ class MessageDialog(QDialog):
         self.accept()
 
 class SortDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, last_sort_choice=None):
         super().__init__(parent)
-        self.setWindowTitle("Sort Data")
+        self.setWindowTitle("Sort")
         self.setFixedSize(480, 240)
         
         layout = QVBoxLayout(self)
         self.message_label = QLabel("Sort files by:")
         self.message_label.setAlignment(Qt.AlignCenter)
-        self.message_label.setWordWrap(True)
         layout.addWidget(self.message_label)
 
         self.radio_buttons = []
@@ -80,9 +79,10 @@ class SortDialog(QDialog):
             radio = QRadioButton(text)
             layout.addWidget(radio)
             self.radio_buttons.append(radio)
-  
-        self.radio_buttons[0].setChecked(True)
-        
+
+            if text == last_sort_choice:
+                radio.setChecked(True)
+          
         btn_layout = QHBoxLayout()
         self.continue_btn = QPushButton("Continue")
         self.continue_btn.clicked.connect(self.accept)

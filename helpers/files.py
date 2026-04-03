@@ -39,7 +39,7 @@ def detect_type(extension):
         
     return "Unknown"
 
-def add_files(path):
+def get_files(path):
     files = []
 
     for root, folders, file_list in os.walk(path):

@@ -3,10 +3,13 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from pathlib import Path
-from helpers import validate_folder, add_files, display_message, sort_files, get_metadata
+from helpers.files import validate_folder, get_files, display_message, sort_files, get_metadata
 from dialogs import *
 from constants import EXPORT_DIR
-from helpers_new.export import *
+from helpers.export import *
+from helpers.extra import save_old_files, load_old_files
+
+
 import json
 import os
 import csv
@@ -156,6 +159,35 @@ class FolderAnalyzer(QWidget):
         self.scroll_layout.addWidget(item)
         self.file_widgets.append(item)
 
+    def reset_state(self):
+        self.current_files = []
+        self.display_files = []
+        self.filter_options = []
+
+        self.last_sort_choice = "Name (A-Z)"
+        self.current_path = ""
+        self.current_metadata = ""
+
+    def render_files(self, path, files):
+        if len(self.current_files) == 0:
+            pass
+        else:
+            save_old_files(self.current_path, self.current_metadata, self.current_files)
+
+        self.clear_entries()
+        self.reset_state()
+
+        for f in files:
+            self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+
+        metadata = get_metadata(files)
+
+        self.metadata_display.setText(metadata)
+        
+        self.current_files = files.copy()
+        self.display_files = files.copy()
+        self.current_metadata = metadata
+
     def file_clicked(self, clicked_item):
         is_currently_visible = clicked_item.info_label.isVisible()
 
@@ -173,19 +205,17 @@ class FolderAnalyzer(QWidget):
             
             item.setParent(None)
             item.deleteLater()
-            
-        print("File entries cleared.")
 
-    def select_folder(self):
-        print("Selecting folder...")
-    
+    def select_folder(self):    
         folder_string = QFileDialog.getExistingDirectory(self, "Select a Folder", str(Path.home()))        
         folder_path = Path(folder_string)
 
         if not folder_string:
-            self.folder_label.setText("No Folder Selected")
+            self.folder_label.setText("Select a Folder")
 
-            display_message(self, "No Folder Selected")
+            message = MessageDialog(self)
+            message.message_label.setText("No folder selected")
+            message.exec_()
             return
 
         success, error = validate_folder(folder_path)
@@ -193,41 +223,23 @@ class FolderAnalyzer(QWidget):
         if not success: 
             self.folder_label.setText("Select a Folder")
 
-            display_message(self, error)
+            message = MessageDialog(self)
+            message.message_label.setText(error)
+            message.exec_()
 
             return
-        else:
-            self.clear_entries()
-            self.folder_label.setText(folder_string)
-            display_message(self, f"Success, loaded {folder_string}")
-            
+        else:       
             self.export_btn.setEnabled(True)
             self.sort_btn.setEnabled(True)
             self.filters_btn.setEnabled(True)
             self.search_bar.setPlaceholderText("Search Files")
-            self.search_bar.setEnabled(True)   
+            self.search_bar.setEnabled(True)
 
-            if len(self.current_files) != 0 and self.current_path != "":
-                old_data = {
-                    "path": self.current_path,
-                    "metadata": self.current_metadata,
-                    "files": self.current_files,
-                }
-                with open("last_save.json", "w") as file:
-                    json.dump(old_data, file)
+            files = get_files(folder_path)
 
-            self.current_files = add_files(folder_path)
-            self.display_files = self.current_files.copy()
-            
-            for f in self.display_files:
-                self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
-
-            metadata_string = get_metadata(self.display_files)
-
-            self.metadata_display.setText(metadata_string)
-            self.current_metadata = metadata_string
+            self.render_files(folder_path, files)
             self.current_path = folder_string
-            self.filter_options = []
+            self.folder_label.setText(folder_string)
 
     def filter_data(self):
         print("Filtering data")
@@ -242,8 +254,6 @@ class FolderAnalyzer(QWidget):
             self.filter_options = dialog.get_filters()
 
     def sort_data(self):
-        print("Sorting data")
-
         if not self.current_files:
             display_message(self, "Sort Failed: No files to sort")
             return
@@ -265,10 +275,7 @@ class FolderAnalyzer(QWidget):
 
             display_message(self, f"Applied {choice} Sort")
 
-
     def export_data(self):
-        print("Exporting data")
-
         if not self.current_files:
             display_message(self, "Export Failed: No files to export")
             return
@@ -277,44 +284,17 @@ class FolderAnalyzer(QWidget):
         dialog.exec_()
 
     def revert_data(self):
-        last_save = {}
+        success, arg = load_old_files(self.current_path)
 
-        try:
-            with open('last_save.json', 'r') as file:
-                last_save = json.load(file)
-            
-        except FileNotFoundError:
-            print("File wasn't found")
+        if success:
+            self.render_files(arg['path'], arg['files'])
 
-            display_message(self, "Revert Failed: Save file was not found")
-            return
-        except json.JSONDecodeError:
-            print("File is empty")
-
-            display_message(self, "Revert Failed: No data available")
-            return
-        
-        if last_save['path'] == self.current_path:
-            display_message(self, "Revert Failed: Last save is the same as the current")
-            return
-
-        current_copy = self.current_files.copy()
-        self.current_files = last_save['files']
-        self.display_files = last_save['files'].copy()
-        self.filter_options = []
-
-        self.clear_entries()
-
-        for f in self.display_files:
-            self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
-
-        self.metadata_display.setText(last_save['metadata'])
-        self.folder_label.setText(last_save['path'])
-
-        self.current_metadata = last_save['metadata']
-        self.current_path = last_save['path']
-
-        display_message(self, f"Succes, retrieved {last_save['path']} save")
+            self.current_path = arg['path']
+            self.folder_label.setText(arg['path'])
+        else:
+            message = MessageDialog(self)
+            message.message_label.setText(arg)
+            message.exec_()
 
     def export_to_json(self):
         file_path = EXPORT_DIR / "folder_analysis.json"

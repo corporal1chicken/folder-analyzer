@@ -1,3 +1,7 @@
+from pathlib import Path
+
+EXPORT_DIR = Path.home() / "Downloads"
+
 TYPES = {
     "image": {".png", ".jpg,", ".jpeg", ".bmp", ".webp", ".svg", ".tiff"},
     "video": {".mp4", ".avi", ".mkv", ".webm"},

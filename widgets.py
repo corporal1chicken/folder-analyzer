@@ -4,8 +4,9 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from pathlib import Path
 from helpers import validate_folder, add_files, display_message, sort_files, get_metadata
-from dialogs import SortDialog, ExportDialog, FilterDialog
-
+from dialogs import *
+from constants import EXPORT_DIR
+from helpers_new.export import *
 import json
 import os
 import csv
@@ -316,92 +317,37 @@ class FolderAnalyzer(QWidget):
         display_message(self, f"Succes, retrieved {last_save['path']} save")
 
     def export_to_json(self):
-        print("Now actually exporting to json")
-        
-        downloads_path = Path.home() / "Downloads"
-        #timestamp = datetime.datetime.now()
-        
-        file_path = downloads_path / "folder_analysis.json"
+        file_path = EXPORT_DIR / "folder_analysis.json"
+        contents = json_ready(self.current_files)
 
-        export_ready = []
+        information = format_writers("json", contents, file_path)
 
-        for f in self.current_files:
-            export_ready.append({
-                "filename": f["filename"],
-                "path": f["path"],
-                "name": f["name"],
-                "extension": f["extension"],
-                "raw": f["raw"],
-                "size": f["size"],
-                "type": f["type"].capitalize()
-            })
-
-        try:
-            with open(file_path, "w", encoding="utf-8") as json_file:
-                json.dump(export_ready, json_file, indent=4)
-
-            display_message(self, f"Exported data to a .json file, find in Downloads")
-
-        except Exception as error:
-            display_message(self, f"Export failed: {error}")
+        message = MessageDialog(self)
+        message.message_label.setText(information)
+        message.exec_()
 
     def export_to_txt(self):
-        print("Now actually exporting to txt")
+        file_path = EXPORT_DIR / "folder_analysis.txt"
 
-        downloads_path = Path.home() / "Downloads"
-        #timestamp = datetime.datetime.now()
+        contents = txt_ready(self.current_files)
 
-        file_path = downloads_path / "folder_analysis.txt"
+        information = format_writers("txt", contents, file_path)
 
-        try:
-            with open(file_path, "w", encoding="utf-8") as txt_file:
-                txt_file.write("Folder Analyzer Export\n")
-                txt_file.write("-----------------------------------\n")
-
-                for f in self.current_files:
-                    txt_file.write(f"File: {f['filename']}\n")
-                    txt_file.write(f"Path: {f['path']}\n")
-                    txt_file.write(f"Name: {f['name']} | Ext: {f['extension']}\n")
-                    txt_file.write(f"Size: {f['size']} ({f['raw']} bytes)\n")
-                    txt_file.write(f"Type: {f['type'].capitalize()}\n")
-                    txt_file.write("-----------------------------------\n")
-
-            display_message(self, f"Exported data to a .txt file, find in Downloads")
-
-        except Exception as error:
-            display_message(self, f"Export failed: {error}")
+        message = MessageDialog(self)
+        message.message_label.setText(information)
+        message.exec_()
 
     def export_to_csv(self):
-        print("Now actually exporting to csv")
+        file_path = EXPORT_DIR / "folder_analysis.csv"
 
-        downloads_path = Path.home() / "Downloads"
-        file_path = downloads_path / "folder_analysis.csv"
+        contents = csv_ready(self.current_files)
 
-        try:
-            with open(file_path, "w", newline="", encoding="utf-8") as csv_file:
-                writer = csv.writer(csv_file)
+        information = format_writers("csv", contents, file_path)
 
-                writer.writerow([
-                    "Filename", "Path", "Name", "Extension",
-                    "Raw", "Size", "Type"
-                ])
-
-                for f in self.current_files:
-                    writer.writerow([
-                        f["filename"],
-                        f["path"],
-                        f["name"],
-                        f["extension"],
-                        f["raw"],
-                        f["size"],
-                        f["type"].capitalize()
-                    ])
-
-            display_message(self, "Exported data to a .csv file, find in Downloads")
-
-        except Exception as error:
-            display_message(self, f"Export failed: {error}")
-
+        message = MessageDialog(self)
+        message.message_label.setText(information)
+        message.exec_()
+        
     def search_files(self, text):
         query = text.lower().strip()
 

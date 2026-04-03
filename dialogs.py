@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QRadioButton, QDialog)
+                             QPushButton, QRadioButton, QDialog, QCheckBox)
 from PyQt5.QtCore import Qt
-from constants import SORT_OPTIONS
+from constants import SORT_OPTIONS, FILTER_OPTIONS
 
 class ExportDialog(QDialog):
     def __init__(self, parent=None):
@@ -71,7 +71,7 @@ class MessageDialog(QDialog):
 class SortDialog(QDialog):
     def __init__(self, parent=None, last_sort_choice=None):
         super().__init__(parent)
-        self.setWindowTitle("Sort")
+        self.setWindowTitle("Sort Options")
         self.setFixedSize(480, 240)
         
         layout = QVBoxLayout(self)
@@ -106,3 +106,44 @@ class SortDialog(QDialog):
                 return radio.text()
             
         return None
+    
+class FilterDialog(QDialog):
+    def __init__(self, parent=None, applied_filters=None):
+        super().__init__(parent)
+        self.setWindowTitle("Filter Options")
+        self.setFixedSize(480, 240)
+        
+        layout = QVBoxLayout(self)
+        self.message_label = QLabel("Select filters:")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.message_label)
+
+        self.check_buttons = []
+        
+        for text in FILTER_OPTIONS:
+            checkbox = QCheckBox(text)
+            layout.addWidget(checkbox)
+            self.check_buttons.append(checkbox)
+
+            if text in applied_filters:
+                checkbox.setChecked(True)
+          
+        btn_layout = QHBoxLayout()
+        self.continue_btn = QPushButton("Apply")
+        self.continue_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.continue_btn)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(self.cancel_btn)
+
+        layout.addLayout(btn_layout)
+
+    def get_filters(self):
+        applied_filters = []
+
+        for btn in self.check_buttons:
+            if btn.isChecked():
+                applied_filters.append(btn.text())
+            
+        return applied_filters

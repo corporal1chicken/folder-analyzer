@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from pathlib import Path
 from helpers import validate_folder, add_files, display_message, sort_files, get_metadata
-from dialogs import SortDialog, ExportDialog
+from dialogs import SortDialog, ExportDialog, FilterDialog
 
 import json
 import os
@@ -19,6 +19,7 @@ class FolderAnalyzer(QWidget):
         self.last_sort_choice = "Name (A-Z)"
         self.current_path = ""
         self.current_metadata = ""
+        self.filter_options = []
         self.initUI()
 
     def initUI(self):        
@@ -225,9 +226,19 @@ class FolderAnalyzer(QWidget):
             self.metadata_display.setText(metadata_string)
             self.current_metadata = metadata_string
             self.current_path = folder_string
+            self.filter_options = []
 
     def filter_data(self):
         print("Filtering data")
+
+        if not self.current_files:
+            display_message(self, "Filter Failed: No files to filter")
+            return
+
+        dialog = FilterDialog(self, self.filter_options)
+
+        if dialog.exec_() == QDialog.Accepted:
+            self.filter_options = dialog.get_filters()
 
     def sort_data(self):
         print("Sorting data")
@@ -249,7 +260,7 @@ class FolderAnalyzer(QWidget):
             self.clear_entries()
 
             for f in self.display_files:
-                self.add_entry(f['filename'], "Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+                self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
             display_message(self, f"Applied {choice} Sort")
 
@@ -282,8 +293,6 @@ class FolderAnalyzer(QWidget):
             display_message(self, "Revert Failed: No data available")
             return
         
-        print(self.current_path)
-        print(last_save['path'])
         if last_save['path'] == self.current_path:
             display_message(self, "Revert Failed: Last save is the same as the current")
             return
@@ -291,11 +300,12 @@ class FolderAnalyzer(QWidget):
         current_copy = self.current_files.copy()
         self.current_files = last_save['files']
         self.display_files = last_save['files'].copy()
+        self.filter_options = []
 
         self.clear_entries()
 
         for f in self.display_files:
-            self.add_entry(f['filename'], f['path'], "Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+            self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
         self.metadata_display.setText(last_save['metadata'])
         self.folder_label.setText(last_save['path'])

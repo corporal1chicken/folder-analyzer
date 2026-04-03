@@ -16,6 +16,8 @@ class FolderAnalyzer(QWidget):
         self.display_files = []
         self.file_widgets = []
         self.last_sort_choice = "Name (A-Z)"
+        self.current_path = ""
+        self.current_metadata = ""
         self.initUI()
 
     def initUI(self):        
@@ -99,10 +101,10 @@ class FolderAnalyzer(QWidget):
         self.scroll.setWidget(self.scroll_content)
         files_inner.addWidget(self.scroll)
 
-        # Export, Filters, Sort Buttons
-        btn_layout = QHBoxLayout()
-        btn_layout.setContentsMargins(10, 10, 10, 10)
-        btn_layout.addStretch()
+        # Export, Filters, Sort, Revert Buttons
+        self.btn_layout = QHBoxLayout()
+        self.btn_layout.setContentsMargins(10, 10, 10, 10)
+        self.btn_layout.addStretch()
 
         self.export_btn = QPushButton()
         self.export_btn.setIcon(QIcon("icons/export.png"))
@@ -119,14 +121,21 @@ class FolderAnalyzer(QWidget):
         self.sort_btn.setFixedSize(35, 35)
         self.sort_btn.setEnabled(False)
 
+        self.revert_btn = QPushButton()
+        self.revert_btn.setIcon(QIcon("icons/restart.png"))
+        self.revert_btn.setFixedSize(35, 35)
+        self.revert_btn.setEnabled(False)
+
         self.export_btn.clicked.connect(self.export_data)
         self.filters_btn.clicked.connect(self.filter_data)
         self.sort_btn.clicked.connect(self.sort_data)
+        self.revert_btn.clicked.connect(self.revert_data)
 
-        btn_layout.addWidget(self.export_btn)
-        btn_layout.addWidget(self.filters_btn)
-        btn_layout.addWidget(self.sort_btn)
-        files_inner.addLayout(btn_layout)
+        self.btn_layout.addWidget(self.export_btn)
+        self.btn_layout.addWidget(self.filters_btn)
+        self.btn_layout.addWidget(self.sort_btn)
+        self.btn_layout.addWidget(self.revert_btn)
+        files_inner.addLayout(self.btn_layout)
         
         files_col.addWidget(self.files_container)
 
@@ -188,11 +197,22 @@ class FolderAnalyzer(QWidget):
         else:
             self.clear_entries()
             self.folder_label.setText(folder_string)
+            
             self.export_btn.setEnabled(True)
             self.sort_btn.setEnabled(True)
+            self.revert_btn.setEnabled(True)
             self.filters_btn.setEnabled(True)
             self.search_bar.setPlaceholderText("Search Files")
-            self.search_bar.setEnabled(True)
+            self.search_bar.setEnabled(True)   
+
+            if len(self.current_files) != 0 and self.current_path != "":
+                old_data = {
+                    "path": self.current_path,
+                    "metadata": self.current_metadata,
+                    "files": self.current_files,
+                }
+                with open("last_save.json", "w") as file:
+                    json.dump(old_data, file)
 
             self.current_files = add_files(folder_path)
             self.display_files = self.current_files.copy()
@@ -200,8 +220,12 @@ class FolderAnalyzer(QWidget):
             for f in self.display_files:
                 self.add_entry(f['filename'], f['path'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
-            self.metadata_display.setText(get_metadata(self.display_files))
-    
+            metadata_string = get_metadata(self.display_files)
+
+            self.metadata_display.setText(metadata_string)
+            self.current_metadata = metadata_string
+            self.current_path = folder_string
+
     def filter_data(self):
         print("Filtering data")
 
@@ -225,7 +249,7 @@ class FolderAnalyzer(QWidget):
             self.clear_entries()
 
             for f in self.display_files:
-                self.add_entry(f['filename'], f"Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+                self.add_entry(f['filename'], "Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
 
             display_message(self, f"Applied {choice} Sort")
 
@@ -239,6 +263,47 @@ class FolderAnalyzer(QWidget):
 
         dialog = ExportDialog(self)
         dialog.exec_()
+
+    def revert_data(self):
+        last_save = {}
+
+        try:
+            with open('last_save.json', 'r') as file:
+                last_save = json.load(file)
+            
+        except FileNotFoundError:
+            print("File wasn't found")
+
+            display_message(self, "File was not found")
+            return
+        except json.JSONDecodeError:
+            print("File is empty")
+
+            display_message(self, "No data available")
+            return
+        
+        print(self.current_path)
+        print(last_save['path'])
+        if last_save['path'] == self.current_path:
+            display_message(self, "Last save is the same as the current")
+            return
+
+        current_copy = self.current_files.copy()
+        self.current_files = last_save['files']
+        self.display_files = last_save['files'].copy()
+
+        self.clear_entries()
+
+        for f in self.display_files:
+            self.add_entry(f['filename'], f['path'], "Type: {f['type'].capitalize()}\nRaw: {f['raw']} | Size: {f['size']}\nLast Modified: {f['last_modified']}\nPath: {f['path']}")
+
+        self.metadata_display.setText(last_save['metadata'])
+        self.folder_label.setText(last_save['path'])
+
+        self.current_metadata = last_save['metadata']
+        self.current_path = last_save['path']
+
+        display_message(self, f"Retrieved {last_save['path']} save")
 
     def export_to_json(self):
         print("Now actually exporting to json")
@@ -295,6 +360,9 @@ class FolderAnalyzer(QWidget):
 
         except Exception as error:
             display_message(self, f"Export failed: {error}")
+
+    def export_to_csv():
+        pass
 
     def search_files(self, text):
         query = text.lower().strip()

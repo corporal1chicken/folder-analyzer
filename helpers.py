@@ -45,7 +45,7 @@ def add_files(path):
             extra_info = os.stat(full_path)
 
             size = extra_info.st_size
-            last_mod = datetime.datetime.fromtimestamp(extra_info.st_mtime)
+            last_mod = str(datetime.datetime.fromtimestamp(extra_info.st_mtime))
 
             files.append(
                 {

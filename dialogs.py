@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt5.QtCore import Qt
 from constants import SORT_OPTIONS
 
-
 class ExportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)

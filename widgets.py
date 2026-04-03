@@ -8,6 +8,7 @@ from dialogs import SortDialog, ExportDialog
 
 import json
 import os
+import csv
 
 class FolderAnalyzer(QWidget):
     def __init__(self):
@@ -124,7 +125,6 @@ class FolderAnalyzer(QWidget):
         self.revert_btn = QPushButton()
         self.revert_btn.setIcon(QIcon("icons/restart.png"))
         self.revert_btn.setFixedSize(35, 35)
-        self.revert_btn.setEnabled(False)
 
         self.export_btn.clicked.connect(self.export_data)
         self.filters_btn.clicked.connect(self.filter_data)
@@ -189,7 +189,7 @@ class FolderAnalyzer(QWidget):
         success, error = validate_folder(folder_path)
 
         if not success: 
-            self.folder_label.setText("No Folder Selected")
+            self.folder_label.setText("Select a Folder")
 
             display_message(self, error)
 
@@ -197,10 +197,10 @@ class FolderAnalyzer(QWidget):
         else:
             self.clear_entries()
             self.folder_label.setText(folder_string)
+            display_message(self, f"Success, loaded {folder_string}")
             
             self.export_btn.setEnabled(True)
             self.sort_btn.setEnabled(True)
-            self.revert_btn.setEnabled(True)
             self.filters_btn.setEnabled(True)
             self.search_bar.setPlaceholderText("Search Files")
             self.search_bar.setEnabled(True)   
@@ -233,7 +233,7 @@ class FolderAnalyzer(QWidget):
         print("Sorting data")
 
         if not self.current_files:
-            display_message(self, "No files to sort")
+            display_message(self, "Sort Failed: No files to sort")
             return
 
         dialog = SortDialog(self, self.last_sort_choice)
@@ -258,7 +258,7 @@ class FolderAnalyzer(QWidget):
         print("Exporting data")
 
         if not self.current_files:
-            display_message(self, "No files to export")
+            display_message(self, "Export Failed: No files to export")
             return
 
         dialog = ExportDialog(self)
@@ -274,18 +274,18 @@ class FolderAnalyzer(QWidget):
         except FileNotFoundError:
             print("File wasn't found")
 
-            display_message(self, "File was not found")
+            display_message(self, "Revert Failed: Save file was not found")
             return
         except json.JSONDecodeError:
             print("File is empty")
 
-            display_message(self, "No data available")
+            display_message(self, "Revert Failed: No data available")
             return
         
         print(self.current_path)
         print(last_save['path'])
         if last_save['path'] == self.current_path:
-            display_message(self, "Last save is the same as the current")
+            display_message(self, "Revert Failed: Last save is the same as the current")
             return
 
         current_copy = self.current_files.copy()
@@ -303,7 +303,7 @@ class FolderAnalyzer(QWidget):
         self.current_metadata = last_save['metadata']
         self.current_path = last_save['path']
 
-        display_message(self, f"Retrieved {last_save['path']} save")
+        display_message(self, f"Succes, retrieved {last_save['path']} save")
 
     def export_to_json(self):
         print("Now actually exporting to json")
@@ -311,7 +311,7 @@ class FolderAnalyzer(QWidget):
         downloads_path = Path.home() / "Downloads"
         #timestamp = datetime.datetime.now()
         
-        file_path = downloads_path / f"folder_analysis.json"
+        file_path = downloads_path / "folder_analysis.json"
 
         export_ready = []
 
@@ -341,7 +341,7 @@ class FolderAnalyzer(QWidget):
         downloads_path = Path.home() / "Downloads"
         #timestamp = datetime.datetime.now()
 
-        file_path = downloads_path / f"folder_analysis.txt"
+        file_path = downloads_path / "folder_analysis.txt"
 
         try:
             with open(file_path, "w", encoding="utf-8") as txt_file:
@@ -361,8 +361,36 @@ class FolderAnalyzer(QWidget):
         except Exception as error:
             display_message(self, f"Export failed: {error}")
 
-    def export_to_csv():
-        pass
+    def export_to_csv(self):
+        print("Now actually exporting to csv")
+
+        downloads_path = Path.home() / "Downloads"
+        file_path = downloads_path / "folder_analysis.csv"
+
+        try:
+            with open(file_path, "w", newline="", encoding="utf-8") as csv_file:
+                writer = csv.writer(csv_file)
+
+                writer.writerow([
+                    "Filename", "Path", "Name", "Extension",
+                    "Raw", "Size", "Type"
+                ])
+
+                for f in self.current_files:
+                    writer.writerow([
+                        f["filename"],
+                        f["path"],
+                        f["name"],
+                        f["extension"],
+                        f["raw"],
+                        f["size"],
+                        f["type"].capitalize()
+                    ])
+
+            display_message(self, "Exported data to a .csv file, find in Downloads")
+
+        except Exception as error:
+            display_message(self, f"Export failed: {error}")
 
     def search_files(self, text):
         query = text.lower().strip()

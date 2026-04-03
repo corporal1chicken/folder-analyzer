@@ -7,7 +7,7 @@ class ExportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Export Options")
-        self.setFixedSize(240, 120)
+        self.setFixedSize(360, 150)
         
         layout = QVBoxLayout(self)
         label = QLabel("How would you like to export?")
@@ -21,21 +21,28 @@ class ExportDialog(QDialog):
 
         self.json_btn = QPushButton("Export as .json")
         self.json_btn.clicked.connect(self.on_json_clicked)
+
+        self.csv_btn = QPushButton("Export as .csv")
+        self.csv_btn.clicked.connect(self.on_csv_clicked)
         
         btn_layout.addWidget(self.txt_btn)
         btn_layout.addWidget(self.json_btn)
+        btn_layout.addWidget(self.csv_btn)
         layout.addLayout(btn_layout)
 
     def on_txt_clicked(self):
         print("Export as .txt")
-
         self.parent().export_to_txt()
-
         self.accept()
 
     def on_json_clicked(self):
         print("Export as .json")
         self.parent().export_to_json()
+        self.accept()
+
+    def on_csv_clicked(self):
+        print("Export to .csv")
+        self.parent().export_to_csv()
         self.accept()
 
 class MessageDialog(QDialog):

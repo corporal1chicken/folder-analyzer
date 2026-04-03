@@ -1,15 +1,20 @@
 from constants import TYPES
 from dialogs import MessageDialog
+from pathlib import Path
+
 import math
 import os
 import datetime
 
 def validate_folder(path):
     if not path.exists():
-        return False, "Path does not exist"
+        return False, "Path Invalid: Path does not exist"
 
     if path.is_file():
-        return False, "Path is a file, not a folder"
+        return False, "Path Invalid: Path is not a folder"
+    
+    if not any(path.iterdir()):
+        return False, "Path Invalid: Folder is empty"
     
     return True, "Success"
 

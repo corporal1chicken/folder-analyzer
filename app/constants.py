@@ -1,6 +1,7 @@
 from pathlib import Path
 
 EXPORT_DIR = Path.home() / "Downloads"
+SAVE_PATH = "data/last_save.json"
 
 TYPES = {
     "image": {".png", ".jpg,", ".jpeg", ".bmp", ".webp", ".svg", ".tiff"},
@@ -18,14 +19,15 @@ SORT_OPTIONS = [
     "Name (Z-A)", 
     "Size (Large to Small)", 
     "Size (Small to Large)", 
-    #"Date Modified (Newest to Oldest)",
-    #"Date Modified (Oldest to Newst)"
 ]
 
 FILTER_OPTIONS = [
     "Text",
+    "Data",
     "Video",
     "Image",
+    "Audio",
+    "Code",
+    "Document",
     "Unknown",
-    "Root Only",
 ]

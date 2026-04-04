@@ -1,6 +1,5 @@
 from constants import TYPES
 from dialogs import MessageDialog
-from pathlib import Path
 
 import math
 import os
@@ -37,7 +36,7 @@ def detect_type(extension):
         if extension in allowed_ext:
             return f_type
         
-    return "Unknown"
+    return "unknown"
 
 def get_files(path):
     files = []
@@ -77,6 +76,15 @@ def sort_files(files, option):
     elif option == "Size (Small to Large)":
         return sorted(files, key=lambda x: x["raw"])
     
+def filter_files(current_files, applied_filters):
+    show_files = []
+
+    for f in current_files:
+        if f['type'].capitalize() in applied_filters:
+            show_files.append(f['filename'])
+
+    return show_files
+
 def get_metadata(files):
     file_count = {}
     smallest_file = None
@@ -102,7 +110,6 @@ def get_metadata(files):
         for file_type, count in file_count.items()
     )
 
-    # Final message
     message = (
         f"- Total Files: {len(files)}\n"
         f"{details}\n"

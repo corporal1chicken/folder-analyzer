@@ -3,16 +3,13 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon
 from pathlib import Path
-from helpers.files import validate_folder, get_files, display_message, sort_files, get_metadata
+from helpers.files import *
 from dialogs import *
 from constants import EXPORT_DIR
 from helpers.export import *
 from helpers.extra import save_old_files, load_old_files
-
-
-import json
+import icons
 import os
-import csv
 
 class FolderAnalyzer(QWidget):
     def __init__(self):
@@ -25,6 +22,7 @@ class FolderAnalyzer(QWidget):
         self.current_metadata = ""
         self.filter_options = []
         self.initUI()
+        self.setWindowTitle("Folder Analyzer")
 
     def initUI(self):        
         # Window
@@ -41,7 +39,7 @@ class FolderAnalyzer(QWidget):
         # Select Folder Button
         folder_section = QHBoxLayout()
         self.folder_btn = QPushButton()
-        self.folder_btn.setIcon(QIcon("icons/folder.png")) 
+        self.folder_btn.setIcon(QIcon("app/icons/folder.png")) 
         self.folder_btn.setFixedSize(60, 60)
         self.folder_btn.clicked.connect(self.select_folder)
         
@@ -113,22 +111,22 @@ class FolderAnalyzer(QWidget):
         self.btn_layout.addStretch()
 
         self.export_btn = QPushButton()
-        self.export_btn.setIcon(QIcon("icons/export.png"))
+        self.export_btn.setIcon(QIcon("app/icons/export.png"))
         self.export_btn.setFixedSize(35, 35)
         self.export_btn.setEnabled(False)
 
         self.filters_btn = QPushButton()
-        self.filters_btn.setIcon(QIcon("icons/filter.png"))
+        self.filters_btn.setIcon(QIcon("app/icons/filter.png"))
         self.filters_btn.setFixedSize(35, 35)
         self.filters_btn.setEnabled(False)
 
         self.sort_btn = QPushButton()
-        self.sort_btn.setIcon(QIcon("icons/sort.png"))
+        self.sort_btn.setIcon(QIcon("app/icons/sort.png"))
         self.sort_btn.setFixedSize(35, 35)
         self.sort_btn.setEnabled(False)
 
         self.revert_btn = QPushButton()
-        self.revert_btn.setIcon(QIcon("icons/restart.png"))
+        self.revert_btn.setIcon(QIcon("app/icons/restart.png"))
         self.revert_btn.setFixedSize(35, 35)
 
         self.export_btn.clicked.connect(self.export_data)
@@ -242,20 +240,27 @@ class FolderAnalyzer(QWidget):
             self.folder_label.setText(folder_string)
 
     def filter_data(self):
-        print("Filtering data")
-
         if not self.current_files:
-            display_message(self, "Filter Failed: No files to filter")
+            display_message(self, "No files to filter")
             return
 
         dialog = FilterDialog(self, self.filter_options)
 
         if dialog.exec_() == QDialog.Accepted:
             self.filter_options = dialog.get_filters()
+            
+            new_list = filter_files(self.current_files, self.filter_options)
+
+            for item in self.file_widgets:
+                if item.filename in new_list:
+                    item.show()
+                else:
+                    item.hide()
+                    item.toggle(False)
 
     def sort_data(self):
         if not self.current_files:
-            display_message(self, "Sort Failed: No files to sort")
+            display_message(self, "No files to sort")
             return
 
         dialog = SortDialog(self, self.last_sort_choice)

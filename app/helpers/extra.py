@@ -1,3 +1,4 @@
+from constants import SAVE_PATH
 import json
 
 def save_old_files(path, metadata, files):
@@ -11,14 +12,13 @@ def save_old_files(path, metadata, files):
         with open("last_save.json", "w") as file:
             json.dump(old_data, file)
     except Exception as error:
-        print("An error occurred whilst saving data")
+        pass
 
 def load_old_files(current_path):
     last_save = {}
-    print(current_path)
 
     try:
-        with open('last_save.json', 'r') as f:
+        with open(SAVE_PATH, 'r') as f:
             last_save = json.load(f)
         
     except FileNotFoundError:
